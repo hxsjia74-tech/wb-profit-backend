@@ -99,6 +99,21 @@ app.post("/sale", async (req, res) => {
     });
   }
 });
+app.get("/sales", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM sales ORDER BY created_at DESC"
+    );
+
+    res.json(result.rows);
+
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to fetch sales",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
