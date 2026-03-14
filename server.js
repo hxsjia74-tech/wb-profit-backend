@@ -68,6 +68,11 @@ async function initDatabase() {
       )
     `);
 
+    await pool.query(`
+  ALTER TABLE sales
+  ADD COLUMN IF NOT EXISTS article TEXT
+`);
+    
     console.log("Sales table ready");
   } catch (error) {
     console.error("Database init error:", error);
@@ -79,17 +84,17 @@ app.use(express.json());
 
 app.post("/sale", async (req, res) => {
   try {
-    const { product_name, cost_price, sell_price, commission, logistics } = req.body;
+    const { article, product_name, cost_price, sell_price, commission, logistics } = req.body;
 
     const profit = sell_price - cost_price - commission - logistics;
 
-    const result = await pool.query(
-      `INSERT INTO sales
-       (product_name, cost_price, sell_price, commission, logistics, profit)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [product_name, cost_price, sell_price, commission, logistics, profit]
-    );
+const result = await pool.query(
+  `INSERT INTO sales
+   (article, product_name, cost_price, sell_price, commission, logistics, profit)
+   VALUES ($1, $2, $3, $4, $5, $6, $7)
+   RETURNING *`,
+  [article, product_name, cost_price, sell_price, commission, logistics, profit]
+);
 
     res.json({
       status: "sale saved",
@@ -138,6 +143,37 @@ app.get("/profit", async (req, res) => {
     });
   }
 });
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+app.get("/profit-by-article", async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        article,
+        COUNT(*) AS total_sales,
+        SUM(profit) AS total_profit,
+        SUM(sell_price) AS total_revenue
+      FROM sales
+      GROUP BY article
+      ORDER BY total_profit DESC
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+
+    res.status(500).json({
+      error: "failed to fetch article profit",
+      details: error.message
+    });
+
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
