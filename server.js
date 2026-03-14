@@ -118,6 +118,26 @@ app.get("/sales", async (req, res) => {
     });
   }
 });
+app.get("/profit", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) AS total_sales,
+        COALESCE(SUM(sell_price), 0) AS total_revenue,
+        COALESCE(SUM(commission), 0) AS total_commission,
+        COALESCE(SUM(logistics), 0) AS total_logistics,
+        COALESCE(SUM(profit), 0) AS total_profit
+      FROM sales
+    `);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to calculate profit",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
