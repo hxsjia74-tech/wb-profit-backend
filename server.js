@@ -71,6 +71,34 @@ async function initDatabase() {
 }
 
 initDatabase();
+app.use(express.json());
+
+app.post("/sale", async (req, res) => {
+  try {
+    const { product_name, cost_price, sell_price, commission, logistics } = req.body;
+
+    const profit = sell_price - cost_price - commission - logistics;
+
+    const result = await pool.query(
+      `INSERT INTO sales
+       (product_name, cost_price, sell_price, commission, logistics, profit)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [product_name, cost_price, sell_price, commission, logistics, profit]
+    );
+
+    res.json({
+      status: "sale saved",
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to save sale",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
