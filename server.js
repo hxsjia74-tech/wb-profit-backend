@@ -168,7 +168,39 @@ app.get("/profit-by-article", async (req, res) => {
 
   }
 });
+app.get("/profit-by-article/:article", async (req, res) => {
+  try {
+    const { article } = req.params;
 
+    const result = await pool.query(
+      `
+      SELECT
+        article,
+        COUNT(*) AS total_sales,
+        SUM(profit) AS total_profit,
+        SUM(sell_price) AS total_revenue
+      FROM sales
+      WHERE article = $1
+      GROUP BY article
+      `,
+      [article]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "article not found"
+      });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to fetch article profit",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
