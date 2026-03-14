@@ -28,7 +28,28 @@ app.get("/test-db", async (req, res) => {
     });
   }
 });
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sales (
+        id SERIAL PRIMARY KEY,
+        product_name TEXT,
+        cost_price NUMERIC,
+        sell_price NUMERIC,
+        commission NUMERIC,
+        logistics NUMERIC,
+        profit NUMERIC,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
+    console.log("Sales table ready");
+  } catch (error) {
+    console.error("Database init error:", error);
+  }
+}
+
+initDatabase();
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
