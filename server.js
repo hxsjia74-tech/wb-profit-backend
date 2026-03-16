@@ -13,7 +13,39 @@ const pool = new Pool({
     rejectUnauthorized: false,
   },
 });
+app.post("/connect-wb", async (req, res) => {
+  try {
+    const { user_id, wb_api_key } = req.body;
 
+    if (!user_id || !wb_api_key) {
+      return res.status(400).json({
+        error: "user_id and wb_api_key are required"
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO users (max_user_id, wb_api_key)
+      VALUES ($1, $2)
+      ON CONFLICT (max_user_id)
+      DO UPDATE SET wb_api_key = EXCLUDED.wb_api_key
+      RETURNING *
+      `,
+      [user_id, wb_api_key]
+    );
+
+    res.json({
+      status: "wb api key saved",
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to save wb api key",
+      details: error.message
+    });
+  }
+});
 app.get("/", (req, res) => {
   res.json({ status: "backend working" });
 });
@@ -72,7 +104,14 @@ async function initDatabase() {
   ALTER TABLE sales
   ADD COLUMN IF NOT EXISTS article TEXT
 `);
-    
+    await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    max_user_id TEXT UNIQUE,
+    wb_api_key TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
     console.log("Sales table ready");
   } catch (error) {
     console.error("Database init error:", error);
