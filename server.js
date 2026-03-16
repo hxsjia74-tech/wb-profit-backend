@@ -49,6 +49,79 @@ app.post("/connect-wb", async (req, res) => {
     });
   }
 });
+app.post("/upload-costs", upload.single("file"), async (req, res) => {
+  try {
+    const user_id = req.body.user_id;
+
+    if (!user_id) {
+      return res.status(400).json({
+        error: "user_id is required"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Excel file is required"
+      });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).json({
+        error: "Excel file is empty"
+      });
+    }
+
+    await pool.query(
+      DELETE FROM costs WHERE max_user_id = $1,
+      [user_id]
+    );
+
+    let savedCount = 0;
+
+    for (const row of rows) {
+      const article =
+        row["Артикул"] ??
+        row["артикул"] ??
+        row["article"];
+
+      const cost =
+        row["Себестоимость"] ??
+        row["себестоимость"] ??
+        row["cost"] ??
+        row["cost_price"];
+
+      if (!article  cost === undefined  cost === null || cost === "") {
+        continue;
+      }
+
+      await pool.query(
+        `
+        INSERT INTO costs (max_user_id, article, cost_price)
+        VALUES ($1, $2, $3)
+        `,
+        [user_id, String(article), Number(cost)]
+      );
+
+      savedCount++;
+    }
+
+    res.json({
+      status: "costs uploaded",
+      rows_saved: savedCount
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to upload costs",
+      details: error.message
+    });
+  }
+});
 app.get("/", (req, res) => {
   res.json({ status: "backend working" });
 });
