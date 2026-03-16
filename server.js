@@ -1,8 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
+const multer = require("multer");
+const XLSX = require("xlsx");
 
 const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
@@ -78,7 +81,15 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS costs (
+    id SERIAL PRIMARY KEY,
+    max_user_id TEXT,
+    article TEXT,
+    cost_price NUMERIC,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
     console.log("Sales table ready");
   } catch (error) {
     console.error("Database init error:", error);
