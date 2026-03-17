@@ -100,10 +100,8 @@ app.post("/upload-costs", upload.single("file"), async (req, res) => {
       }
 
       await pool.query(
-        `
-        INSERT INTO costs (max_user_id, article, cost_price)
-        VALUES ($1, $2, $3)
-        `,
+        `INSERT INTO costs (max_user_id, article, cost_price)
+        VALUES ($1, $2, $3)`,
         [user_id, String(article), Number(cost)]
       );
 
