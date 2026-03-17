@@ -322,6 +322,24 @@ app.get("/profit-by-article/:article", async (req, res) => {
     });
   }
 });
+app.get("/create-costs-table", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS costs (
+        id SERIAL PRIMARY KEY,
+        max_user_id TEXT,
+        article TEXT,
+        cost_price NUMERIC,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    res.json({ message: "costs table created" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
