@@ -84,6 +84,7 @@ app.post("/upload-costs", upload.single("file"), async (req, res) => {
     let savedCount = 0;
 
     for (const row of rows) {
+      console.log("ROW:, row);
       const article =
         row["Артикул"] ??
         row["артикул"] ??
