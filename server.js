@@ -77,7 +77,7 @@ app.post("/upload-costs", upload.single("file"), async (req, res) => {
     }
 
     await pool.query(
-      DELETE FROM costs WHERE max_user_id = $1,
+      `DELETE FROM costs WHERE max_user_id = $1`
       [user_id]
     );
 
