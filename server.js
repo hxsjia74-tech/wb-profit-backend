@@ -82,19 +82,28 @@ app.post("/upload-costs", upload.single("file"), async (req, res) => {
     );
 
     let savedCount = 0;
+    
+     for (const row of rows) {
+  console.log("ROW:", row);
 
-    for (const row of rows) {
-      console.log("ROW:", row);
-      const article =
-        row["Артикул"] ??
-        row["артикул"] ??
-        row["article"];
+  const normalizedRow = {};
 
-      const cost =
-        row["Себестоимость"] ??
-        row["себестоимость"] ??
-        row["cost"] ??
-        row["cost_price"];
+  for (const key of Object.keys(row)) {
+    normalizedRow[String(key).trim()] = row[key];
+  }
+
+  const article =
+    normalizedRow["Артикул"] ??
+    normalizedRow["артикул"] ??
+    normalizedRow["article"];
+
+  const cost =
+    normalizedRow["Себестоимость"] ??
+    normalizedRow["себестоимость"] ??
+    normalizedRow["cost"] ??
+    normalizedRow["cost_price"];
+
+  console.log("PARSED:", { article, cost });
 
       if (!article || cost === undefined || cost === null || cost === "") {
         continue;
