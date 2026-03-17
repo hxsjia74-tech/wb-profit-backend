@@ -95,7 +95,7 @@ app.post("/upload-costs", upload.single("file"), async (req, res) => {
         row["cost"] ??
         row["cost_price"];
 
-      if (!article  cost === undefined  cost === null || cost === "") {
+      if (!article || cost === undefined || cost === null || cost === "") {
         continue;
       }
 
