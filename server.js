@@ -514,6 +514,7 @@ app.get("/profit/:user_id", async (req, res) => {
       if (data.length < 100) {
         break;
       }
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     const costResult = await pool.query(
