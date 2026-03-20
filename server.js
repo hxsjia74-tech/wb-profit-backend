@@ -429,6 +429,180 @@ app.get("/wb-test/:user_id", async (req, res) => {
     });
   }
 });
+app.get("/profit/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const userResult = await pool.query(
+      `
+      SELECT wb_api_key
+      FROM users
+      WHERE max_user_id = $1
+      LIMIT 1
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "user not found"
+      });
+    }
+
+    const wbApiKey = userResult.rows[0].wb_api_key;
+
+    if (!wbApiKey) {
+      return res.status(400).json({
+        error: "wb api key not found"
+      });
+    }
+
+    const dateFrom = "2024-01-29";
+    const dateTo = new Date().toISOString().slice(0, 10);
+
+    let allRows = [];
+    let rrdid = 0;
+
+    while (true) {
+      const url =
+        https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod +
+        ?dateFrom=${encodeURIComponent(dateFrom)} +
+        &dateTo=${encodeURIComponent(dateTo)} +
+        &limit=100 +
+        &rrdid=${rrdid};
+
+      const wbResponse = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: wbApiKey
+        }
+      });
+
+      if (wbResponse.status === 204) {
+        break;
+      }
+
+      const text = await wbResponse.text();
+
+      let data;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+
+      if (!wbResponse.ok) {
+        return res.status(wbResponse.status).json({
+          error: "wb api request failed",
+          details: data
+        });
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        break;
+      }
+
+      allRows = allRows.concat(data);
+
+      const lastRow = data[data.length - 1];
+      if (!lastRow || !lastRow.rrd_id) {
+        break;
+      }
+
+      rrdid = lastRow.rrd_id;
+
+      if (data.length < 100) {
+        break;
+      }
+    }
+
+    const costResult = await pool.query(
+      `
+      SELECT article, cost_price
+      FROM costs
+      WHERE max_user_id = $1
+      `,
+      [user_id]
+    );
+
+    const costMap = {};
+    for (const row of costResult.rows) {
+      costMap[String(row.article)] = Number(row.cost_price);
+    }
+
+    const grouped = {};
+
+    for (const row of allRows) {
+      const article = String(row.nm_id  row.sa_name  row.supplier_article || "").trim();
+
+      if (!article) {
+        continue;
+      }
+
+      if (!grouped[article]) {
+        grouped[article] = {
+          article,
+          quantity: 0,
+          revenue: 0,
+          commission: 0,
+          logistics: 0,
+          storage: 0,
+          cost_price_per_unit: costMap[article] ?? 0,
+          cost_total: 0,
+          profit: 0
+        };
+      }
+
+      const quantity = Number(row.quantity || 0);
+      const revenue = Number(row.retail_amount  row.retail_price  0);
+      const commission = Number(row.ppvz_sales_commission || 0);
+      const logistics = Number(row.delivery_rub || 0);
+      const storage = Number(row.storage_fee || 0);
+
+      grouped[article].quantity += quantity;
+      grouped[article].revenue += revenue;
+      grouped[article].commission += commission;
+      grouped[article].logistics += logistics;
+      grouped[article].storage += storage;
+    }
+
+    const result = Object.values(grouped).map((item) => {
+      const costTotal = item.quantity * item.cost_price_per_unit;
+      const profit =
+        item.revenue -
+        item.commission -
+        item.logistics -
+        item.storage -
+        costTotal;
+
+      return {
+        article: item.article,
+        quantity: item.quantity,
+        revenue: Number(item.revenue.toFixed(2)),
+        commission: Number(item.commission.toFixed(2)),
+        logistics: Number(item.logistics.toFixed(2)),
+        storage: Number(item.storage.toFixed(2)),
+        cost_price_per_unit: Number(item.cost_price_per_unit.toFixed(2)),
+        cost_total: Number(costTotal.toFixed(2)),
+        profit: Number(profit.toFixed(2))
+      };
+    });
+
+    result.sort((a, b) => b.profit - a.profit);
+
+    res.json({
+      status: "ok",
+      total_articles: result.length,
+      total_rows_from_wb: allRows.length,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to calculate profit",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
