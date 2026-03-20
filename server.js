@@ -465,11 +465,11 @@ app.get("/profit/:user_id", async (req, res) => {
 
     while (true) {
       const url =
-        https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod +
-        ?dateFrom=${encodeURIComponent(dateFrom)} +
-        &dateTo=${encodeURIComponent(dateTo)} +
-        &limit=100 +
-        &rrdid=${rrdid};
+        `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
+        `?dateFrom=${encodeURIComponent(dateFrom)}` +
+        `&dateTo=${encodeURIComponent(dateTo)}` +
+        `&limit=100` +
+        `&rrdid=${rrdid}`;
 
       const wbResponse = await fetch(url, {
         method: "GET",
