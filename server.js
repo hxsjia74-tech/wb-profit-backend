@@ -381,11 +381,11 @@ app.get("/wb-test/:user_id", async (req, res) => {
     const dateTo = new Date().toISOString().slice(0, 10);
 
     const url =
-      https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod +
-      ?dateFrom=${encodeURIComponent(dateFrom)} +
-      &dateTo=${encodeURIComponent(dateTo)} +
-      &limit=100 +
-      &rrdid=0;
+      `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
+      `?dateFrom=${encodeURIComponent(dateFrom)}` +
+      `&dateTo=${encodeURIComponent(dateTo)}` +
+      `&limit=100` +
+      `&rrdid=0`;
 
     const wbResponse = await fetch(url, {
       method: "GET",
