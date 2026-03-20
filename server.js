@@ -349,7 +349,86 @@ app.get("/create-costs-table", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/wb-test/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
 
+    const userResult = await pool.query(
+      `
+      SELECT wb_api_key
+      FROM users
+      WHERE max_user_id = $1
+      LIMIT 1
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "user not found"
+      });
+    }
+
+    const wbApiKey = userResult.rows[0].wb_api_key;
+
+    if (!wbApiKey) {
+      return res.status(400).json({
+        error: "wb api key not found"
+      });
+    }
+
+    const dateFrom = "2024-01-29";
+    const dateTo = new Date().toISOString().slice(0, 10);
+
+    const url =
+      https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod +
+      ?dateFrom=${encodeURIComponent(dateFrom)} +
+      &dateTo=${encodeURIComponent(dateTo)} +
+      &limit=100 +
+      &rrdid=0;
+
+    const wbResponse = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: wbApiKey
+      }
+    });
+
+    if (wbResponse.status === 204) {
+      return res.json({
+        status: "ok",
+        message: "wb responded but no data for selected period"
+      });
+    }
+
+    const text = await wbResponse.text();
+
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!wbResponse.ok) {
+      return res.status(wbResponse.status).json({
+        error: "wb api request failed",
+        details: data
+      });
+    }
+
+    res.json({
+      status: "ok",
+      count: Array.isArray(data) ? data.length : null,
+      sample: Array.isArray(data) ? data.slice(0, 3) : data
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to request wb api",
+      details: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
