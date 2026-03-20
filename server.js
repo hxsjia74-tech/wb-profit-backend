@@ -533,7 +533,7 @@ app.get("/profit/:user_id", async (req, res) => {
     const grouped = {};
 
     for (const row of allRows) {
-      const article = String(row.nm_id  row.sa_name  row.supplier_article || "").trim();
+      const article = String(row.nm_id || row.sa_name || row.supplier_article || "").trim();
 
       if (!article) {
         continue;
