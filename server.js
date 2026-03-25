@@ -619,6 +619,198 @@ res.json({
     });
   }
 });
+app.get("/profit-text/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const userResult = await pool.query(
+      `
+      SELECT wb_api_key
+      FROM users
+      WHERE max_user_id = $1
+      LIMIT 1
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).send("Пользователь не найден");
+    }
+
+    const wbApiKey = userResult.rows[0].wb_api_key;
+
+    if (!wbApiKey) {
+      return res.status(400).send("WB API ключ не найден");
+    }
+
+    const today = new Date();
+    const dateTo = today.toISOString().slice(0, 10);
+
+    const from = new Date();
+    from.setDate(from.getDate() - 7);
+    const dateFrom = from.toISOString().slice(0, 10);
+
+    const url =
+      `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
+      `?dateFrom=${encodeURIComponent(dateFrom)}` +
+      `&dateTo=${encodeURIComponent(dateTo)}` +
+      `&limit=100000` +
+      `&rrdid=0`;
+
+    const wbResponse = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: wbApiKey
+      }
+    });
+
+    if (wbResponse.status === 204) {
+      return res.send("За выбранный период данных нет.");
+    }
+
+    const text = await wbResponse.text();
+
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!wbResponse.ok) {
+      return res.status(wbResponse.status).send(
+        typeof data === "string"
+          ? data
+          : JSON.stringify(data)
+      );
+    }
+
+    const allRows = Array.isArray(data) ? data : [];
+
+    const costResult = await pool.query(
+      `
+      SELECT article, cost_price
+      FROM costs
+      WHERE max_user_id = $1
+      `,
+      [user_id]
+    );
+
+    const costMap = {};
+    for (const row of costResult.rows) {
+      costMap[String(row.article)] = Number(row.cost_price);
+    }
+
+    const grouped = {};
+
+    for (const row of allRows) {
+      const article = String(
+        row.nm_id  row.sa_name  row.supplier_article || ""
+      ).trim();
+
+      if (!article) {
+        continue;
+      }
+
+      if (!grouped[article]) {
+        grouped[article] = {
+          article,
+          quantity: 0,
+          revenue: 0,
+          commission: 0,
+          logistics: 0,
+          storage: 0,
+          cost_price_per_unit: costMap[article] ?? 0,
+          cost_total: 0,
+          profit: 0
+        };
+      }
+
+      const quantity = Number(row.quantity || 0);
+      const revenue = Number(row.retail_amount  row.retail_price  0);
+      const commission = Number(row.ppvz_sales_commission || 0);
+      const logistics = Number(row.delivery_rub || 0);
+      const storage = Number(row.storage_fee || 0);
+
+      grouped[article].quantity += quantity;
+      grouped[article].revenue += revenue;
+      grouped[article].commission += commission;
+      grouped[article].logistics += logistics;
+      grouped[article].storage += storage;
+    }
+
+    const result = Object.values(grouped).map((item) => {
+      const costTotal = item.quantity * item.cost_price_per_unit;
+      const profit =
+        item.revenue -
+        item.commission -
+        item.logistics -
+        item.storage -
+        costTotal;
+
+      return {
+        article: item.article,
+        quantity: item.quantity,
+        revenue: Number(item.revenue.toFixed(2)),
+        commission: Number(item.commission.toFixed(2)),
+        logistics: Number(item.logistics.toFixed(2)),
+        storage: Number(item.storage.toFixed(2)),
+        cost_price_per_unit: Number(item.cost_price_per_unit.toFixed(2)),
+        cost_total: Number(costTotal.toFixed(2)),
+        profit: Number(profit.toFixed(2))
+      };
+    });
+
+    const matched = result
+      .filter(item => item.cost_price_per_unit > 0)
+      .sort((a, b) => b.profit - a.profit);
+
+    const unmatched = result
+      .filter(item => item.cost_price_per_unit === 0)
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totalRevenueMatched = matched.reduce((sum, item) => sum + item.revenue, 0);
+    const totalProfitMatched = matched.reduce((sum, item) => sum + item.profit, 0);
+const top3 = matched.slice(0, 3);
+
+    const formatNumber = (num) =>
+      new Intl.NumberFormat("ru-RU", {
+        maximumFractionDigits: 2
+      }).format(num);
+
+    let message = 📊 Прибыль WB за период ${dateFrom} — ${dateTo}\n\n;
+    message += 💰 Общая прибыль: ${formatNumber(totalProfitMatched)} ₽\n;
+    message += 📦 Выручка: ${formatNumber(totalRevenueMatched)} ₽\n\n;
+    message += 📊 Артикулов всего: ${result.length}\n;
+    message += ✅ С себестоимостью: ${matched.length}\n;
+    message += ⚠️ Без себестоимости: ${unmatched.length}\n\n;
+
+    if (top3.length > 0) {
+      message += 🏆 Топ-3 по прибыли:\n;
+      top3.forEach((item, index) => {
+        message += ${index + 1}. ${item.article} — ${formatNumber(item.profit)} ₽\n;
+      });
+    }
+
+    if (unmatched.length > 0) {
+      message += \n⚠️ Без себестоимости:\n;
+      unmatched.slice(0, 5).forEach((item) => {
+        message += • ${item.article}\n;
+      });
+
+      if (unmatched.length > 5) {
+        message += • и ещё ${unmatched.length - 5}\n;
+      }
+    }
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.send(message);
+
+  } catch (error) {
+    res.status(500).send(`Ошибка: ${error.message}`);
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
