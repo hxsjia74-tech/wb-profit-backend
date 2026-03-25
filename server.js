@@ -459,63 +459,47 @@ app.get("/profit/:user_id", async (req, res) => {
 
     const dateFrom = "2024-01-29";
     const dateTo = new Date().toISOString().slice(0, 10);
+    
+const url =
+  https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod +
+  ?dateFrom=${encodeURIComponent(dateFrom)} +
+  &dateTo=${encodeURIComponent(dateTo)} +
+  &limit=100000 +
+  &rrdid=0;
 
-    let allRows = [];
-    let rrdid = 0;
+const wbResponse = await fetch(url, {
+  method: "GET",
+  headers: {
+    Authorization: wbApiKey
+  }
+});
 
-    while (true) {
-      const url =
-        `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
-        `?dateFrom=${encodeURIComponent(dateFrom)}` +
-        `&dateTo=${encodeURIComponent(dateTo)}` +
-        `&limit=100` +
-        `&rrdid=${rrdid}`;
+if (wbResponse.status === 204) {
+  return res.json({
+    status: "ok",
+    total_articles: 0,
+    total_rows_from_wb: 0,
+    data: []
+  });
+}
 
-      const wbResponse = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: wbApiKey
-        }
-      });
+const text = await wbResponse.text();
 
-      if (wbResponse.status === 204) {
-        break;
-      }
+let data;
+try {
+  data = text ? JSON.parse(text) : null;
+} catch {
+  data = text;
+}
 
-      const text = await wbResponse.text();
+if (!wbResponse.ok) {
+  return res.status(wbResponse.status).json({
+    error: "wb api request failed",
+    details: data
+  });
+}
 
-      let data;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
-
-      if (!wbResponse.ok) {
-        return res.status(wbResponse.status).json({
-          error: "wb api request failed",
-          details: data
-        });
-      }
-
-      if (!Array.isArray(data) || data.length === 0) {
-        break;
-      }
-
-      allRows = allRows.concat(data);
-
-      const lastRow = data[data.length - 1];
-      if (!lastRow || !lastRow.rrd_id) {
-        break;
-      }
-
-      rrdid = lastRow.rrd_id;
-
-      if (data.length < 100) {
-        break;
-      }
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
+const allRows = Array.isArray(data) ? data : [];
 
     const costResult = await pool.query(
       `
