@@ -643,13 +643,15 @@ app.get("/profit-text/:user_id", async (req, res) => {
       return res.status(400).send("WB API ключ не найден");
     }
 
-    const today = new Date();
-    const dateTo = today.toISOString().slice(0, 10);
+    const days = Number(req.query.days || 7);
 
-    const from = new Date();
-    from.setDate(from.getDate() - 7);
-    const dateFrom = from.toISOString().slice(0, 10);
+const today = new Date();
+const dateTo = today.toISOString().slice(0, 10);
 
+const from = new Date();
+from.setDate(from.getDate() - days);
+const dateFrom = from.toISOString().slice(0, 10);
+    
     const url =
       `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
       `?dateFrom=${encodeURIComponent(dateFrom)}` +
