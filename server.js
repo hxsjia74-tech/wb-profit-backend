@@ -457,8 +457,12 @@ app.get("/profit/:user_id", async (req, res) => {
       });
     }
 
-    const dateFrom = "2024-01-29";
-    const dateTo = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+const dateTo = today.toISOString().slice(0, 10);
+
+const from = new Date();
+from.setDate(from.getDate() - 7);
+const dateFrom = from.toISOString().slice(0, 10);
     
 const url =
   `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
