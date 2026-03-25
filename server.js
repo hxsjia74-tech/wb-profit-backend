@@ -554,37 +554,64 @@ const allRows = Array.isArray(data) ? data : [];
       grouped[article].logistics += logistics;
       grouped[article].storage += storage;
     }
+const result = Object.values(grouped).map((item) => {
+  const costTotal = item.quantity * item.cost_price_per_unit;
+  const profit =
+    item.revenue -
+    item.commission -
+    item.logistics -
+    item.storage -
+    costTotal;
 
-    const result = Object.values(grouped).map((item) => {
-      const costTotal = item.quantity * item.cost_price_per_unit;
-      const profit =
-        item.revenue -
-        item.commission -
-        item.logistics -
-        item.storage -
-        costTotal;
+  return {
+    article: item.article,
+    quantity: item.quantity,
+    revenue: Number(item.revenue.toFixed(2)),
+    commission: Number(item.commission.toFixed(2)),
+    logistics: Number(item.logistics.toFixed(2)),
+    storage: Number(item.storage.toFixed(2)),
+    cost_price_per_unit: Number(item.cost_price_per_unit.toFixed(2)),
+    cost_total: Number(costTotal.toFixed(2)),
+    profit: Number(profit.toFixed(2))
+  };
+});
 
-      return {
-        article: item.article,
-        quantity: item.quantity,
-        revenue: Number(item.revenue.toFixed(2)),
-        commission: Number(item.commission.toFixed(2)),
-        logistics: Number(item.logistics.toFixed(2)),
-        storage: Number(item.storage.toFixed(2)),
-        cost_price_per_unit: Number(item.cost_price_per_unit.toFixed(2)),
-        cost_total: Number(costTotal.toFixed(2)),
-        profit: Number(profit.toFixed(2))
-      };
-    });
+const matched = result
+  .filter(item => item.cost_price_per_unit > 0)
+  .sort((a, b) => b.profit - a.profit);
 
-    result.sort((a, b) => b.profit - a.profit);
+const unmatched = result
+  .filter(item => item.cost_price_per_unit === 0)
+  .sort((a, b) => b.revenue - a.revenue);
 
-    res.json({
-      status: "ok",
-      total_articles: result.length,
-      total_rows_from_wb: allRows.length,
-      data: result
-    });
+const totalRevenueMatched = matched.reduce((sum, item) => sum + item.revenue, 0);
+const totalCommissionMatched = matched.reduce((sum, item) => sum + item.commission, 0);
+const totalLogisticsMatched = matched.reduce((sum, item) => sum + item.logistics, 0);
+const totalStorageMatched = matched.reduce((sum, item) => sum + item.storage, 0);
+const totalCostMatched = matched.reduce((sum, item) => sum + item.cost_total, 0);
+const totalProfitMatched = matched.reduce((sum, item) => sum + item.profit, 0);
+
+res.json({
+  status: "ok",
+  period: {
+    dateFrom,
+    dateTo
+  },
+  summary: {
+    total_rows_from_wb: allRows.length,
+    total_articles: result.length,
+    matched_articles: matched.length,
+    unmatched_articles: unmatched.length,
+    total_revenue_matched: Number(totalRevenueMatched.toFixed(2)),
+    total_commission_matched: Number(totalCommissionMatched.toFixed(2)),
+    total_logistics_matched: Number(totalLogisticsMatched.toFixed(2)),
+    total_storage_matched: Number(totalStorageMatched.toFixed(2)),
+    total_cost_matched: Number(totalCostMatched.toFixed(2)),
+    total_profit_matched: Number(totalProfitMatched.toFixed(2))
+  },
+  matched,
+  unmatched
+});
   } catch (error) {
     res.status(500).json({
       error: "failed to calculate profit",
