@@ -705,7 +705,7 @@ app.get("/profit-text/:user_id", async (req, res) => {
 
     for (const row of allRows) {
       const article = String(
-        row.nm_id  row.sa_name  row.supplier_article || ""
+        row.nm_id || row.sa_name || row.supplier_article || ""
       ).trim();
 
       if (!article) {
@@ -727,7 +727,7 @@ app.get("/profit-text/:user_id", async (req, res) => {
       }
 
       const quantity = Number(row.quantity || 0);
-      const revenue = Number(row.retail_amount  row.retail_price  0);
+      const revenue = Number(row.retail_amount || row.retail_price || 0);
       const commission = Number(row.ppvz_sales_commission || 0);
       const logistics = Number(row.delivery_rub || 0);
       const storage = Number(row.storage_fee || 0);
