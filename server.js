@@ -778,28 +778,28 @@ const top3 = matched.slice(0, 3);
         maximumFractionDigits: 2
       }).format(num);
 
-    let message = 📊 Прибыль WB за период ${dateFrom} — ${dateTo}\n\n;
-    message += 💰 Общая прибыль: ${formatNumber(totalProfitMatched)} ₽\n;
-    message += 📦 Выручка: ${formatNumber(totalRevenueMatched)} ₽\n\n;
-    message += 📊 Артикулов всего: ${result.length}\n;
-    message += ✅ С себестоимостью: ${matched.length}\n;
-    message += ⚠️ Без себестоимости: ${unmatched.length}\n\n;
+    let message = `📊 Прибыль WB за период ${dateFrom} — ${dateTo}\n\n`;
+    message += `💰 Общая прибыль: ${formatNumber(totalProfitMatched)} ₽\n`;
+    message += `📦 Выручка: ${formatNumber(totalRevenueMatched)} ₽\n\n`;
+    message += `📊 Артикулов всего: ${result.length}\n`;
+    message += `✅ С себестоимостью: ${matched.length}\n`;
+    message += `⚠️ Без себестоимости: ${unmatched.length}\n\n`;
 
     if (top3.length > 0) {
-      message += 🏆 Топ-3 по прибыли:\n;
+      message += `🏆 Топ-3 по прибыли:\n`;
       top3.forEach((item, index) => {
-        message += ${index + 1}. ${item.article} — ${formatNumber(item.profit)} ₽\n;
+        message += `${index + 1}. ${item.article} — ${formatNumber(item.profit)} ₽\n`;
       });
     }
 
     if (unmatched.length > 0) {
-      message += \n⚠️ Без себестоимости:\n;
+      message += `\n⚠️ Без себестоимости:\n`;
       unmatched.slice(0, 5).forEach((item) => {
-        message += • ${item.article}\n;
+        message += `• ${item.article}\n`;
       });
 
       if (unmatched.length > 5) {
-        message += • и ещё ${unmatched.length - 5}\n;
+        message += `• и ещё ${unmatched.length - 5}\n`;
       }
     }
 
