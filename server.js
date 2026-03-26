@@ -917,8 +917,11 @@ app.get("/debug-article/:user_id/:article", async (req, res) => {
     }));
 
     for (const row of matchedRows) {
-      quantitySum += Number(row.quantity || 0);
-      revenueSum += Number(row.retail_amount || row.retail_price || 0);
+      const revenue = Number(row.retail_amount || row.retail_price || 0);
+      const quantity = revenue > 0 ? 1 : 0;
+
+      quantitySum += quantity;
+      revenueSum += revenue;
       commissionSum += Number(row.ppvz_sales_commission || 0);
       logisticsSum += Number(row.delivery_rub || 0);
       storageSum += Number(row.storage_fee || 0);
