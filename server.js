@@ -918,7 +918,7 @@ app.get("/debug-article/:user_id/:article", async (req, res) => {
 
     for (const row of matchedRows) {
       const revenue = Number(row.retail_amount || row.retail_price || 0);
-      const quantity = revenue > 0 ? 1 : 0;
+      const quantity = Number(row.quantity || 0);
 
       quantitySum += quantity;
       revenueSum += revenue;
