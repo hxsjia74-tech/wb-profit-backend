@@ -728,8 +728,8 @@ const dateFrom = from.toISOString().slice(0, 10);
         };
       }
 
-      const quantity = Number(row.quantity || 0);
       const revenue = Number(row.retail_amount || row.retail_price || 0);
+      const quantity = revenue > 0 ? 1 : 0;
       const commission = Number(row.ppvz_sales_commission || 0);
       const logistics = Number(row.delivery_rub || 0);
       const storage = Number(row.storage_fee || 0);
