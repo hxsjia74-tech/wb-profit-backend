@@ -923,7 +923,7 @@ app.get("/debug-article/:user_id/:article", async (req, res) => {
       quantitySum += quantity;
       revenueSum += revenue;
       commissionSum += Number(row.ppvz_sales_commission || 0);
-      logisticsSum += Number(row.delivery_rub || 0);
+      logisticsSum += revenue > 0 ? Number(row.delivery_rub || 0) : 0;
       storageSum += Number(row.storage_fee || 0);
     }
 
