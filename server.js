@@ -806,6 +806,152 @@ if (unmatched.length > 0) {
   }
 });
 
+app.get("/debug-article/:user_id/:article", async (req, res) => {
+  try {
+    const { user_id, article } = req.params;
+    const days = Number(req.query.days || 7);
+
+    const userResult = await pool.query(
+      `
+      SELECT wb_api_key
+      FROM users
+      WHERE max_user_id = $1
+      LIMIT 1
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "user not found" });
+    }
+
+    const wbApiKey = userResult.rows[0].wb_api_key;
+
+    if (!wbApiKey) {
+      return res.status(400).json({ error: "wb api key not found" });
+    }
+
+    const today = new Date();
+    const dateTo = today.toISOString().slice(0, 10);
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const dateFrom = from.toISOString().slice(0, 10);
+
+    const url =
+      `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
+      `?dateFrom=${encodeURIComponent(dateFrom)}` +
+      `&dateTo=${encodeURIComponent(dateTo)}` +
+      `&limit=100000` +
+      `&rrdid=0`;
+
+    const wbResponse = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: wbApiKey
+      }
+    });
+
+    if (wbResponse.status === 204) {
+      return res.json({ message: "no data for selected period" });
+    }
+
+    const text = await wbResponse.text();
+
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!wbResponse.ok) {
+      return res.status(wbResponse.status).json({
+        error: "wb api request failed",
+        details: data
+      });
+    }
+
+    const allRows = Array.isArray(data) ? data : [];
+
+    const matchedRows = allRows.filter((row) => {
+      const rowArticle = String(
+        row.nm_id || row.sa_name || row.supplier_article || ""
+      ).trim();
+
+      return rowArticle === String(article).trim();
+    });
+
+    const costResult = await pool.query(
+      `
+      SELECT article, cost_price
+      FROM costs
+      WHERE max_user_id = $1 AND article = $2
+      LIMIT 1
+      `,
+      [user_id, article]
+    );
+
+    const costPrice =
+      costResult.rows.length > 0 ? Number(costResult.rows[0].cost_price) : 0;
+
+    let quantitySum = 0;
+    let revenueSum = 0;
+    let commissionSum = 0;
+    let logisticsSum = 0;
+    let storageSum = 0;
+
+    const preview = matchedRows.slice(0, 20).map((row) => ({
+      article_detected: String(
+        row.nm_id || row.sa_name || row.supplier_article || ""
+      ).trim(),
+      quantity: row.quantity,
+      retail_amount: row.retail_amount,
+      retail_price: row.retail_price,
+      ppvz_sales_commission: row.ppvz_sales_commission,
+      delivery_rub: row.delivery_rub,
+      storage_fee: row.storage_fee,
+      sa_name: row.sa_name,
+      supplier_article: row.supplier_article,
+      nm_id: row.nm_id
+    }));
+
+    for (const row of matchedRows) {
+      quantitySum += Number(row.quantity || 0);
+      revenueSum += Number(row.retail_amount || row.retail_price || 0);
+      commissionSum += Number(row.ppvz_sales_commission || 0);
+      logisticsSum += Number(row.delivery_rub || 0);
+      storageSum += Number(row.storage_fee || 0);
+    }
+
+    const costTotal = quantitySum * costPrice;
+    const profit =
+      revenueSum - commissionSum - logisticsSum - storageSum - costTotal;
+
+    res.json({
+      period: { dateFrom, dateTo, days },
+      article,
+      matched_rows_count: matchedRows.length,
+      cost_price_per_unit: costPrice,
+      totals: {
+        quantitySum,
+        revenueSum,
+        commissionSum,
+        logisticsSum,
+        storageSum,
+        costTotal,
+        profit
+      },
+      preview
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to debug article",
+      details: error.message
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
