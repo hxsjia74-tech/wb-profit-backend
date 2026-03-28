@@ -1102,9 +1102,12 @@ if (top5SharePercent >= 80) {
   );
 }
 
-if (lowSalesArticles.length > 0) {
+    const lowSalesCount = allArticles.filter(
+  (item) => item.sales > 0 && item.sales <= 5
+).length;
+if (lowSalesCount > 0) {
   recommendations.push(
-    `Найдено ${lowSalesArticles.length} товаров с низкими продажами — проверьте карточки, остатки и рекламу`
+    `Найдено ${lowSalesCount} товаров с низкими продажами — проверьте карточки, остатки и рекламу`
   );
 }
 
