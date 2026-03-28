@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WB Analytics Mini</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .metric {
+      background: #f9fafb;
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .metric-title {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    input, button {
+      font-size: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+    }
+
+    input {
+      flex: 1;
+      min-width: 240px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: #4f46e5;
+      color: white;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: #111827;
+    }
+
+    button.ghost {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .insight-list, .top-list {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f9fafb;
+    }
+
+    .muted {
+      color: #6b7280;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WB Analytics Mini</h1>
+
+    <div class="card">
+      <h2>Подключение WB</h2>
+      <div class="row">
+        <input id="userId" placeholder="Введите user_id" value="test_user" />
+        <input id="wbApiKey" placeholder="Вставьте WB API ключ" />
+      </div>
+      <div class="row" style="margin-top: 12px;">
+        <button onclick="connectWB()">Подключить WB</button>
+      </div>
+      <div id="connectStatus" class="status muted"></div>
+    </div>
+
+    <div class="card">
+      <h2>Аналитика</h2>
+      <div class="row">
+        <button onclick="loadAnalytics(1)">За 1 день</button>
+        <button class="secondary" onclick="loadAnalytics(7)">За 7 дней</button>
+      </div>
+      <div id="analyticsStatus" class="status muted"></div>
+    </div>
+
+    <div id="analyticsContent" class="hidden">
+      <div class="grid">
+        <div class="metric card">
+          <div class="metric-title">Выручка</div>
+          <div id="totalRevenue" class="metric-value">—</div>
+        </div>
+        <div class="metric card">
+          <div class="metric-title">Продажи</div>
+          <div id="totalSales" class="metric-value">—</div>
+        </div>
+        <div class="metric card">
+          <div class="metric-title">Артикулы</div>
+          <div id="totalArticles" class="metric-value">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Период</h3>
+        <div id="periodText" class="muted">—</div>
+      </div>
+
+      <div class="card">
+        <h3>Инсайты</h3>
+        <p><strong>Доля топ-5 товаров в выручке:</strong> <span id="top5Share">—</span>%</p>
+        <ul id="recommendations" class="insight-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3>Топ товары</h3>
+        <ol id="topArticles" class="top-list"></ol>
+      </div>
+
+      <div class="card">
+        <h3>Все артикулы</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Артикул</th>
+              <th>Выручка</th>
+              <th>Продажи</th>
+            </tr>
+          </thead>
+          <tbody id="allArticlesTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://wb-profit-backend-9lke.onrender.com";
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat("ru-RU", {
+        maximumFractionDigits: 2
+      }).format(Number(value || 0)) + " ₽";
+    }
+
+    function formatInt(value) {
+      return new Intl.NumberFormat("ru-RU").format(Number(value || 0));
+    }
+
+    async function connectWB() {
+      const userId = document.getElementById("userId").value.trim();
+      const wbApiKey = document.getElementById("wbApiKey").value.trim();
+      const status = document.getElementById("connectStatus");
+
+      if (!userId || !wbApiKey) {
+        status.textContent = "Введите user_id и WB API ключ";
+        return;
+      }
+
+      status.textContent = "Подключаем WB...";
+
+      try {
+        const response = await fetch(`${API_BASE}/connect-wb`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            wb_api_key: wbApiKey
+          })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          status.textContent = data?.error || "Не удалось подключить WB";
+          return;
+        }
+
+        status.textContent = "WB ключ сохранён";
+      } catch (error) {
+        status.textContent = "Ошибка подключения к backend";
+      }
+    }
+
+    async function loadAnalytics(days) {
+      const userId = document.getElementById("userId").value.trim();
+      const status = document.getElementById("analyticsStatus");
+      const content = document.getElementById("analyticsContent");
+
+      if (!userId) {
+        status.textContent = "Введите user_id";
+        return;
+      }
+
+      status.textContent = "Загружаем аналитику...";
+      content.classList.add("hidden");
+
+      try {
+        const response = await fetch(`${API_BASE}/analytics/${encodeURIComponent(userId)}?days=${days}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          status.textContent = data?.error || "Ошибка загрузки аналитики";
+          return;
+        }
+
+        renderAnalytics(data);
+        status.textContent = "Готово";
+        content.classList.remove("hidden");
+      } catch (error) {
+        status.textContent = "Ошибка запроса к backend";
+      }
+    }
+
+    function renderAnalytics(data) {
+      document.getElementById("totalRevenue").textContent = formatMoney(data.summary.total_revenue);
+      document.getElementById("totalSales").textContent = formatInt(data.summary.total_sales);
+      document.getElementById("totalArticles").textContent = formatInt(data.summary.total_articles);
+
+      document.getElementById("periodText").textContent =
+        `${data.period.dateFrom} — ${data.period.dateTo} (${data.period.days} дн.)`;
+
+      document.getElementById("top5Share").textContent = data.insights?.top_5_share_percent ?? 0;
+
+      const recommendationsEl = document.getElementById("recommendations");
+      recommendationsEl.innerHTML = "";
+      (data.insights?.recommendations || []).forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        recommendationsEl.appendChild(li);
+      });
+
+      const topArticlesEl = document.getElementById("topArticles");
+      topArticlesEl.innerHTML = "";
+      (data.top_articles || []).forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = `${item.article} — ${formatMoney(item.revenue)} • ${formatInt(item.sales)} продаж`;
+        topArticlesEl.appendChild(li);
+      });
+
+      const tableEl = document.getElementById("allArticlesTable");
+      tableEl.innerHTML = "";
+      (data.all_articles || []).forEach((item) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.article}</td>
+          <td>${formatMoney(item.revenue)}</td>
+          <td>${formatInt(item.sales)}</td>
+        `;
+        tableEl.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
