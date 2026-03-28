@@ -1035,33 +1035,48 @@ app.get("/analytics/:user_id", async (req, res) => {
       });
     }
 
-    const allRows = Array.isArray(data) ? data : [];
-    const grouped = {};
+const allRows = Array.isArray(data) ? data : [];
+const grouped = {};
+const dailyRevenueMap = {};
 
-    for (const row of allRows) {
-      const article = String(
-        row.nm_id || row.sa_name || row.supplier_article || ""
-      ).trim();
+for (const row of allRows) {
+  const article = String(
+    row.nm_id  row.sa_name || row.supplier_article || ""
+  ).trim();
 
-      if (!article) {
-        continue;
-      }
+  const revenue = Number(row.retail_amount || row.retail_price || 0);
+  const sales = revenue > 0 ? 1 : 0;
 
-      const revenue = Number(row.retail_amount || row.retail_price || 0);
-      const sales = revenue > 0 ? 1 : 0;
+  const date = String(
+    row.sale_dt ||
+    row.date ||
+    row.create_dt ||
+    row.last_change_date ||
+    ""
+  ).slice(0, 10);
 
-      if (!grouped[article]) {
-        grouped[article] = {
-          article,
-          revenue: 0,
-          sales: 0
-        };
-      }
-
-      grouped[article].revenue += revenue;
-      grouped[article].sales += sales;
+  if (date) {
+    if (!dailyRevenueMap[date]) {
+      dailyRevenueMap[date] = 0;
     }
+    dailyRevenueMap[date] += revenue;
+  }
 
+  if (!article) {
+    continue;
+  }
+
+  if (!grouped[article]) {
+    grouped[article] = {
+      article,
+      revenue: 0,
+      sales: 0
+    };
+  }
+
+  grouped[article].revenue += revenue;
+  grouped[article].sales += sales;
+}
     const allArticles = Object.values(grouped)
       .map((item) => ({
         article: item.article,
@@ -1117,6 +1132,12 @@ if (zeroSalesArticles.length > 0) {
   );
 }
 
+    const daily_revenue = Object.keys(dailyRevenueMap)
+  .sort()
+  .map((date) => ({
+    date,
+    revenue: Number(dailyRevenueMap[date].toFixed(2))
+  }));
 res.json({
   status: "ok",
   period: { dateFrom, dateTo, days },
@@ -1132,6 +1153,7 @@ res.json({
     recommendations
   },
   top_articles: topArticles,
+  daily_revenue: daily_revenue,
   all_articles: allArticles
 });
     
