@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WB Analytics Mini</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       margin: 0;
@@ -157,7 +158,10 @@
       </div>
       <div id="analyticsStatus" class="status muted"></div>
     </div>
-
+<div class="card">
+  <h3>График выручки</h3>
+  <canvas id="revenueChart"></canvas>
+</div>
     <div id="analyticsContent" class="hidden">
       <div class="grid">
         <div class="metric card">
@@ -324,6 +328,22 @@
         tableEl.appendChild(tr);
       });
     }
+    function drawFakeChart() {
+  const ctx = document.getElementById('revenueChart');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+      datasets: [{
+        label: 'Выручка',
+        data: [12000, 19000, 8000, 15000, 22000, 17000, 20000]
+      }]
+    }
+  });
+}
+
+drawFakeChart();
   </script>
 </body>
 </html>
