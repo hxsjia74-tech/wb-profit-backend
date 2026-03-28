@@ -955,6 +955,145 @@ app.get("/debug-article/:user_id/:article", async (req, res) => {
   }
 });
 
+app.get("/analytics/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const days = Number(req.query.days || 7);
+
+    const userResult = await pool.query(
+      `
+      SELECT wb_api_key
+      FROM users
+      WHERE max_user_id = $1
+      LIMIT 1
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "user not found"
+      });
+    }
+
+    const wbApiKey = userResult.rows[0].wb_api_key;
+
+    if (!wbApiKey) {
+      return res.status(400).json({
+        error: "wb api key not found"
+      });
+    }
+
+    const today = new Date();
+    const dateTo = today.toISOString().slice(0, 10);
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const dateFrom = from.toISOString().slice(0, 10);
+
+    const url =
+      `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` +
+      `?dateFrom=${encodeURIComponent(dateFrom)}` +
+      `&dateTo=${encodeURIComponent(dateTo)}` +
+      `&limit=100000` +
+      `&rrdid=0`;
+
+    const wbResponse = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: wbApiKey
+      }
+    });
+
+    if (wbResponse.status === 204) {
+      return res.json({
+        status: "ok",
+        period: { dateFrom, dateTo, days },
+        summary: {
+          total_revenue: 0,
+          total_sales: 0,
+          total_articles: 0
+        },
+        top_articles: [],
+        all_articles: []
+      });
+    }
+
+    const text = await wbResponse.text();
+
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!wbResponse.ok) {
+      return res.status(wbResponse.status).json({
+        error: "wb api request failed",
+        details: data
+      });
+    }
+
+    const allRows = Array.isArray(data) ? data : [];
+    const grouped = {};
+
+    for (const row of allRows) {
+      const article = String(
+        row.nm_id || row.sa_name || row.supplier_article || ""
+      ).trim();
+
+      if (!article) {
+        continue;
+      }
+
+      const revenue = Number(row.retail_amount || row.retail_price || 0);
+      const sales = revenue > 0 ? 1 : 0;
+
+      if (!grouped[article]) {
+        grouped[article] = {
+          article,
+          revenue: 0,
+          sales: 0
+        };
+      }
+
+      grouped[article].revenue += revenue;
+      grouped[article].sales += sales;
+    }
+
+    const allArticles = Object.values(grouped)
+      .map((item) => ({
+        article: item.article,
+        revenue: Number(item.revenue.toFixed(2)),
+        sales: item.sales
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totalRevenue = allArticles.reduce((sum, item) => sum + item.revenue, 0);
+    const totalSales = allArticles.reduce((sum, item) => sum + item.sales, 0);
+
+    const topArticles = allArticles.slice(0, 10);
+
+    res.json({
+      status: "ok",
+      period: { dateFrom, dateTo, days },
+      summary: {
+        total_revenue: Number(totalRevenue.toFixed(2)),
+        total_sales: totalSales,
+        total_articles: allArticles.length
+      },
+      top_articles: topArticles,
+      all_articles: allArticles
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "failed to build analytics",
+      details: error.message
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
