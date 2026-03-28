@@ -1041,7 +1041,7 @@ const dailyRevenueMap = {};
 
 for (const row of allRows) {
   const article = String(
-    row.nm_id  row.sa_name || row.supplier_article || ""
+    row.nm_id || row.sa_name || row.supplier_article || ""
   ).trim();
 
   const revenue = Number(row.retail_amount || row.retail_price || 0);
