@@ -327,23 +327,37 @@
         `;
         tableEl.appendChild(tr);
       });
+      drawRevenueChart(data.daily_revenue || []);
     }
-    function drawFakeChart() {
-  const ctx = document.getElementById('revenueChart');
+    let revenueChartInstance = null;
 
-  new Chart(ctx, {
-    type: 'line',
+function drawRevenueChart(dailyRevenue) {
+  const ctx = document.getElementById("revenueChart");
+
+  if (!ctx) return;
+
+  if (revenueChartInstance) {
+    revenueChartInstance.destroy();
+  }
+
+  const labels = (dailyRevenue || []).map(item => item.date);
+  const values = (dailyRevenue || []).map(item => Number(item.revenue || 0));
+
+  revenueChartInstance = new Chart(ctx, {
+    type: "line",
     data: {
-      labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+      labels,
       datasets: [{
-        label: 'Выручка',
-        data: [12000, 19000, 8000, 15000, 22000, 17000, 20000]
+        label: "Выручка",
+        data: values
       }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true
     }
   });
 }
-
-drawFakeChart();
   </script>
 </body>
 </html>
