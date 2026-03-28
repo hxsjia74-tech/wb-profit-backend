@@ -1073,19 +1073,65 @@ app.get("/analytics/:user_id", async (req, res) => {
     const totalRevenue = allArticles.reduce((sum, item) => sum + item.revenue, 0);
     const totalSales = allArticles.reduce((sum, item) => sum + item.sales, 0);
 
-    const topArticles = allArticles.slice(0, 10);
+const topArticles = allArticles.slice(0, 10);
 
-    res.json({
-      status: "ok",
-      period: { dateFrom, dateTo, days },
-      summary: {
-        total_revenue: Number(totalRevenue.toFixed(2)),
-        total_sales: totalSales,
-        total_articles: allArticles.length
-      },
-      top_articles: topArticles,
-      all_articles: allArticles
-    });
+const top5Revenue = allArticles
+  .slice(0, 5)
+  .reduce((sum, item) => sum + item.revenue, 0);
+
+const top5SharePercent =
+  totalRevenue > 0 ? Number(((top5Revenue / totalRevenue) * 100).toFixed(2)) : 0;
+
+const lowSalesArticles = allArticles
+  .filter((item) => item.sales > 0 && item.sales <= 5)
+  .slice(0, 10);
+
+const zeroSalesArticles = allArticles
+  .filter((item) => item.sales === 0)
+  .slice(0, 10);
+
+const recommendations = [];
+
+if (top5SharePercent >= 80) {
+  recommendations.push(
+    `Топ-5 товаров дают ${top5SharePercent}% выручки — высокая зависимость от нескольких SKU`
+  );
+} else {
+  recommendations.push(
+    `Выручка распределена более равномерно: топ-5 товаров дают ${top5SharePercent}%`
+  );
+}
+
+if (lowSalesArticles.length > 0) {
+  recommendations.push(
+    `Найдено ${lowSalesArticles.length} товаров с низкими продажами — проверьте карточки, остатки и рекламу`
+  );
+}
+
+if (zeroSalesArticles.length > 0) {
+  recommendations.push(
+    `Есть товары без продаж за период: ${zeroSalesArticles.length} шт. Возможно, их стоит продвигать или выводить из ассортимента`
+  );
+}
+
+res.json({
+  status: "ok",
+  period: { dateFrom, dateTo, days },
+  summary: {
+    total_revenue: Number(totalRevenue.toFixed(2)),
+    total_sales: totalSales,
+    total_articles: allArticles.length
+  },
+  insights: {
+    top_5_share_percent: top5SharePercent,
+    low_sales_articles: lowSalesArticles,
+    zero_sales_articles: zeroSalesArticles,
+    recommendations
+  },
+  top_articles: topArticles,
+  all_articles: allArticles
+});
+    
   } catch (error) {
     res.status(500).json({
       error: "failed to build analytics",
