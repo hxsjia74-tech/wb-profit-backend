@@ -199,9 +199,10 @@
         <table>
           <thead>
             <tr>
-              <th>Артикул</th>
-              <th>Выручка</th>
-              <th>Продажи</th>
+            <th>Фото</th>
+            <th>Артикул</th>
+            <th>Выручка</th>
+            <th>Продажи</th>
             </tr>
           </thead>
           <tbody id="allArticlesTable"></tbody>
@@ -311,26 +312,66 @@
       const topArticlesEl = document.getElementById("topArticles");
       topArticlesEl.innerHTML = "";
       (data.top_articles || []).forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = `${item.article} — ${formatMoney(item.revenue)} • ${formatInt(item.sales)} продаж`;
-        topArticlesEl.appendChild(li);
-      });
+  const li = document.createElement("li");
+  const imageUrl = getWBImageUrl(item.article);
+
+  li.innerHTML = `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <img
+        src="${imageUrl}"
+        alt="${item.article}"
+        width="40"
+        height="54"
+        style="object-fit: cover; border-radius: 6px;"
+        onerror="this.style.display='none'"
+      />
+      <div>
+        <div><strong>${item.article}</strong></div>
+        <div>${formatMoney(item.revenue)} • ${formatInt(item.sales)} продаж</div>
+      </div>
+    </div>
+  `;
+
+  topArticlesEl.appendChild(li);
+});
 
       const tableEl = document.getElementById("allArticlesTable");
       tableEl.innerHTML = "";
       (data.all_articles || []).forEach((item) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${item.article}</td>
-          <td>${formatMoney(item.revenue)}</td>
-          <td>${formatInt(item.sales)}</td>
-        `;
+        const imageUrl = getWBImageUrl(item.article);
+
+tr.innerHTML = `
+  <td>
+    <img
+      src="${imageUrl}"
+      alt="${item.article}"
+      width="50"
+      height="68"
+      style="object-fit: cover; border-radius: 8px;"
+      onerror="this.style.display='none'"
+    />
+  </td>
+  <td>${item.article}</td>
+  <td>${formatMoney(item.revenue)}</td>
+  <td>${formatInt(item.sales)}</td>
+`;
         tableEl.appendChild(tr);
       });
       drawRevenueChart(data.daily_revenue || []);
     }
     let revenueChartInstance = null;
 
+function getWBImageUrl(article) {
+  const num = Number(article);
+  if (!num) return "";
+
+  const vol = Math.floor(num / 100000);
+  const part = Math.floor(num / 1000);
+
+  return `https://basket-01.wbbasket.ru/vol${vol}/part${part}/${num}/images/c246x328/1.webp`;
+}
+    
 function drawRevenueChart(dailyRevenue) {
   const ctx = document.getElementById("revenueChart");
 
